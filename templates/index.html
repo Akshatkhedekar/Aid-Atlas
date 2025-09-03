@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>AidAtlas - Bhopal</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        body {
+            margin: 0;
+            font-family: system-ui, Arial, sans-serif;
+        }
+
+        .bar {
+            padding: 10px;
+            background: #f6f7f8;
+            border-bottom: 1px solid #e2e2e2;
+        }
+
+        .bar>* {
+            margin-right: 6px;
+        }
+
+        #map {
+            height: 75vh;
+        }
+
+        select,
+        input,
+        button,
+        textarea {
+            padding: 6px;
+            font-size: 14px;
+        }
+
+        textarea {
+            vertical-align: middle;
+            width: 240px;
+            height: 32px;
+        }
+
+        input[type="number"] {
+            width: 120px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bar">
+        <label>Type:</label>
+        <select id="incidentType">
+            <option value="Medical">Medical</option>
+            <option value="Fire">Fire</option>
+            <option value="Robbery">Robbery</option>
+            <option value="Crime/Assault">Crime/Assault</option>
+            <option value="Accident">Accident</option>
+            <option value="Other">Other</option>
+        </select>
+
+        <textarea id="description" placeholder="Extra details (optional)"></textarea>
+
+        <input id="lat" type="number" step="any" placeholder="Lat (e.g. 23.2599)" />
+        <input id="lng" type="number" step="any" placeholder="Lng (e.g. 77.4126)" />
+        <button id="reportBtn">Report Incident</button>
+        <button id="clickModeBtn" title="Click map to set coords">Pick on Map</button>
+    </div>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        // Init map (Bhopal)
+        const map = L.map('map').setView([23.2599, 77.4126], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+        // Load incidents on page load
+        async function loadIncidents() {
+            const res = await fetch("/get_incidents");
+            const incidents = await res.json();
+            incidents.forEach(i => {
+                const m = L.marker([i.lat, i.lng]).addTo(map);
+                m.bindPopup(`<b>${i.type}</b><br>${i.description || ""}`);
+            });
+        }
+        loadIncidents();
+
+        // Optional: pick coordinates by clicking the map
+        document.getElementById("clickModeBtn").addEventListener("click", () => {
+            alert("Click on the map to fill Lat/Lng");
+            map.once("click", e => {
+                document.getElementById("lat").value = e.latlng.lat.toFixed(6);
+                document.getElementById("lng").value = e.latlng.lng.toFixed(6);
+            });
+        });
+
+        // Report button → POST to backend, then add marker
+        document.getElementById("reportBtn").addEventListener("click", async () => {
+            const type = document.getElementById("incidentType").value;
+            const description = document.getElementById("description").value;
+            const lat = parseFloat(document.getElementById("lat").value);
+            const lng = parseFloat(document.getElementById("lng").value);
+
+            if (Number.isNaN(lat) || Number.isNaN(lng)) {
+                alert("Please provide valid latitude and longitude.");
+                return;
+            }
+
+            const res = await fetch("/add_incident", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ type, description, lat, lng })
+            });
+
+            const data = await res.json();
+            if (data.status === "success") {
+                const marker = L.marker([lat, lng]).addTo(map);
+                marker.bindPopup(`<b>${type}</b><br>${description || ""}`).openPopup();
+                // Clear inputs
+                document.getElementById("description").value = "";
+                document.getElementById("lat").value = "";
+                document.getElementById("lng").value = "";
+            } else {
+                alert("Failed to save incident.");
+            }
+        });
+    </script>
+</body>
+
+</html>
