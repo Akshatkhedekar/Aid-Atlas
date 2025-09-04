@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
 from dotenv import load_dotenv
@@ -124,12 +124,15 @@ def logout():
 @app.route("/")
 def index():
     if "user_id" not in session:
-        return redirect(url_for("login"))  # send to login first
-    return render_template("index.html")
+        return redirect(url_for("login"))
+    return render_template("index.html", role=session.get("role"))
 
 
 @app.route("/add_incident", methods=["POST"])
 def add_incident():
+    if session.get("role") != "public":
+        return jsonify({"status": "error", "message": "Only public users can report incidents."}), 403
+
     data = request.get_json(force=True)
     incident_type = data.get("type")
     description   = data.get("description", "")
@@ -146,17 +149,40 @@ def add_incident():
     conn.close()
     return jsonify({"status": "success"})
 
+
 @app.route("/get_incidents", methods=["GET"])
 def get_incidents():
+    role = session.get("role", "public")  # default = public if not logged in
+
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
     c.execute("SELECT id, type, description, lat, lng FROM incidents")
     rows = c.fetchall()
     conn.close()
-    return jsonify([
-        {"id": r[0], "type": r[1], "description": r[2], "lat": r[3], "lng": r[4]}
-        for r in rows
-    ])
+
+    incidents = []
+    for r in rows:
+        incident = {
+            "id": r[0],
+            "type": r[1],
+        }
+
+        if role == "emergency":
+            # Emergency services: full details
+            incident["description"] = r[2]
+            incident["lat"] = r[3]
+            incident["lng"] = r[4]
+        else:
+            # Public: no description + rounded coordinates
+            incident["description"] = ""  
+            incident["lat"] = round(r[3], 2)  # approximate
+            incident["lng"] = round(r[4], 2)
+
+        incidents.append(incident)
+
+    return jsonify(incidents)
+
+
 
 if __name__ == "__main__":
     app.run(debug=True)
