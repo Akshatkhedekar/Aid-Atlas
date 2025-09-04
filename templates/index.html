@@ -2,129 +2,174 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8" />
-    <title>AidAtlas - Bhopal</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <style>
-        body {
-            margin: 0;
-            font-family: system-ui, Arial, sans-serif;
-        }
+  <meta charset="UTF-8" />
+  <title>AidAtlas - Bhopal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, Arial, sans-serif;
+      background: #fdfdfd;
+    }
 
-        .bar {
-            padding: 10px;
-            background: #f6f7f8;
-            border-bottom: 1px solid #e2e2e2;
-        }
+    header {
+      background: #003366;
+      color: #fff;
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
 
-        .bar>* {
-            margin-right: 6px;
-        }
+    header h1 {
+      margin: 0;
+      font-size: 20px;
+    }
 
-        #map {
-            height: 75vh;
-        }
+    nav a {
+      color: #fff;
+      margin-left: 15px;
+      text-decoration: none;
+      font-weight: bold;
+    }
 
-        select,
-        input,
-        button,
-        textarea {
-            padding: 6px;
-            font-size: 14px;
-        }
+    nav a:hover {
+      text-decoration: underline;
+    }
 
-        textarea {
-            vertical-align: middle;
-            width: 240px;
-            height: 32px;
-        }
+    .bar {
+      padding: 10px;
+      background: #f6f7f8;
+      border-bottom: 1px solid #e2e2e2;
+    }
 
-        input[type="number"] {
-            width: 120px;
-        }
-    </style>
+    .bar>* {
+      margin-right: 6px;
+    }
+
+    #map {
+      height: 75vh;
+    }
+
+    select,
+    input,
+    button,
+    textarea {
+      padding: 6px;
+      font-size: 14px;
+    }
+
+    textarea {
+      vertical-align: middle;
+      width: 240px;
+      height: 32px;
+    }
+
+    input[type="number"] {
+      width: 120px;
+    }
+  </style>
 </head>
 
 <body>
-    <div class="bar">
-        <label>Type:</label>
-        <select id="incidentType">
-            <option value="Medical">Medical</option>
-            <option value="Fire">Fire</option>
-            <option value="Robbery">Robbery</option>
-            <option value="Crime/Assault">Crime/Assault</option>
-            <option value="Accident">Accident</option>
-            <option value="Other">Other</option>
-        </select>
+  <header>
+    <h1>AidAtlas - Bhopal</h1>
+    <nav>
+      {% if session.get("user_id") %}
+      <span>Logged in as <b>{{ session.get("role") }}</b></span>
+      <a href="{{ url_for('logout') }}">Logout</a>
+      {% else %}
+      <a href="{{ url_for('login') }}">Login</a>
+      <a href="{{ url_for('register') }}">Register</a>
+      {% endif %}
+    </nav>
+  </header>
 
-        <textarea id="description" placeholder="Extra details (optional)"></textarea>
+  <div class="bar">
+    <label>Type:</label>
+    <select id="incidentType">
+      <option value="Medical">Medical</option>
+      <option value="Fire">Fire</option>
+      <option value="Robbery">Robbery</option>
+      <option value="Crime/Assault">Crime/Assault</option>
+      <option value="Accident">Accident</option>
+      <option value="Other">Other</option>
+    </select>
 
-        <input id="lat" type="number" step="any" placeholder="Lat (e.g. 23.2599)" />
-        <input id="lng" type="number" step="any" placeholder="Lng (e.g. 77.4126)" />
-        <button id="reportBtn">Report Incident</button>
-        <button id="clickModeBtn" title="Click map to set coords">Pick on Map</button>
-    </div>
+    <textarea id="description" placeholder="Extra details (optional)"></textarea>
 
-    <div id="map"></div>
+    <input id="lat" type="number" step="any" placeholder="Lat (e.g. 23.2599)" />
+    <input id="lng" type="number" step="any" placeholder="Lng (e.g. 77.4126)" />
+    <button id="reportBtn">Report Incident</button>
+    <button id="clickModeBtn" title="Click map to set coords">Pick on Map</button>
+  </div>
 
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <script>
-        // Init map (Bhopal)
-        const map = L.map('map').setView([23.2599, 77.4126], 12);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+  <div id="map"></div>
 
-        // Load incidents on page load
-        async function loadIncidents() {
-            const res = await fetch("/get_incidents");
-            const incidents = await res.json();
-            incidents.forEach(i => {
-                const m = L.marker([i.lat, i.lng]).addTo(map);
-                m.bindPopup(`<b>${i.type}</b><br>${i.description || ""}`);
-            });
-        }
-        loadIncidents();
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    const map = L.map('map').setView([23.2599, 77.4126], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19
+    }).addTo(map);
 
-        // Optional: pick coordinates by clicking the map
-        document.getElementById("clickModeBtn").addEventListener("click", () => {
-            alert("Click on the map to fill Lat/Lng");
-            map.once("click", e => {
-                document.getElementById("lat").value = e.latlng.lat.toFixed(6);
-                document.getElementById("lng").value = e.latlng.lng.toFixed(6);
-            });
-        });
+    // Load incidents
+    async function loadIncidents() {
+      const res = await fetch("/get_incidents");
+      const incidents = await res.json();
+      incidents.forEach(i => {
+        const m = L.marker([i.lat, i.lng]).addTo(map);
 
-        // Report button → POST to backend, then add marker
-        document.getElementById("reportBtn").addEventListener("click", async () => {
-            const type = document.getElementById("incidentType").value;
-            const description = document.getElementById("description").value;
-            const lat = parseFloat(document.getElementById("lat").value);
-            const lng = parseFloat(document.getElementById("lng").value);
+        // Role-based display (Jinja injects the condition)
+        {% if session.get("role") == "emergency" %}
+        m.bindPopup(`<b>${i.type}</b><br>${i.description || ""}`);
+        {% else %}
+        m.bindPopup(`<b>${i.type}</b>`);
+        {% endif %}
+      });
+    }
+    loadIncidents();
 
-            if (Number.isNaN(lat) || Number.isNaN(lng)) {
-                alert("Please provide valid latitude and longitude.");
-                return;
-            }
+    // Pick coordinates on map
+    document.getElementById("clickModeBtn").addEventListener("click", () => {
+      alert("Click on the map to fill Lat/Lng");
+      map.once("click", e => {
+        document.getElementById("lat").value = e.latlng.lat.toFixed(6);
+        document.getElementById("lng").value = e.latlng.lng.toFixed(6);
+      });
+    });
 
-            const res = await fetch("/add_incident", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ type, description, lat, lng })
-            });
+    // Report new incident
+    document.getElementById("reportBtn").addEventListener("click", async () => {
+      const type = document.getElementById("incidentType").value;
+      const description = document.getElementById("description").value;
+      const lat = parseFloat(document.getElementById("lat").value);
+      const lng = parseFloat(document.getElementById("lng").value);
 
-            const data = await res.json();
-            if (data.status === "success") {
-                const marker = L.marker([lat, lng]).addTo(map);
-                marker.bindPopup(`<b>${type}</b><br>${description || ""}`).openPopup();
-                // Clear inputs
-                document.getElementById("description").value = "";
-                document.getElementById("lat").value = "";
-                document.getElementById("lng").value = "";
-            } else {
-                alert("Failed to save incident.");
-            }
-        });
-    </script>
+      if (Number.isNaN(lat) || Number.isNaN(lng)) {
+        alert("Please provide valid latitude and longitude.");
+        return;
+      }
+
+      const res = await fetch("/add_incident", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type, description, lat, lng })
+      });
+
+      const data = await res.json();
+      if (data.status === "success") {
+        const marker = L.marker([lat, lng]).addTo(map);
+        marker.bindPopup(`<b>${type}</b><br>${description || ""}`).openPopup();
+        document.getElementById("description").value = "";
+        document.getElementById("lat").value = "";
+        document.getElementById("lng").value = "";
+      } else {
+        alert("Failed to save incident.");
+      }
+    });
+  </script>
 </body>
 
 </html>
